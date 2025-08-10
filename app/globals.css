@@ -70,18 +70,8 @@ html {
   background-clip: text;
 }
 
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
 .glow-effect {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.floating-animation {
-  animation: float 6s ease-in-out infinite;
 }
 
 @keyframes float {
@@ -121,9 +111,9 @@ html {
 }
 
 /* Navbar specific styles */
-.navbar-transition {
-  transition: width 0.3s ease-in-out, max-width 0.3s ease-in-out;
-}
+/*.navbar-transition {*/
+/*  transition: width 0.3s ease-in-out, max-width 0.3s ease-in-out;*/
+/*}*/
 
 /* Ensure navbar doesn't interfere with content */
 body {
@@ -166,6 +156,12 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    
+    /* Brand colors */
+    --brand-blue: 213 94% 68%;
+    --brand-purple: 262 83% 58%;
+    --brand-green: 158 64% 52%;
+    --brand-unicorn: 300 100% 80%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -192,6 +188,12 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    
+    /* Brand colors for dark mode */
+    --brand-blue: 213 94% 68%;
+    --brand-purple: 262 83% 58%;
+    --brand-green: 158 64% 52%;
+    --brand-unicorn: 300 100% 80%;
   }
 }
 
@@ -204,4 +206,9 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Prevent flash of unstyled content */
+.floating-nav {
+    contain: layout style paint;
 }

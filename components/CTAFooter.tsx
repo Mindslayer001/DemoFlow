@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, useInView } from 'framer-motion'
-import { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { 
   ArrowRight, 
   Rocket, 
@@ -9,7 +9,6 @@ import {
   Users,
   Zap,
   Shield,
-  Globe,
   Github,
   Twitter,
   Linkedin,
@@ -111,14 +110,14 @@ export function CTAFooter() {
               Ready to Transform Your Development?
             </motion.div>
 
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
               Start building the
               <span className="block text-gradient bg-gradient-to-r from-primary-400 via-secondary-400 to-accent-400 bg-clip-text text-transparent">
                 future today
               </span>
             </h2>
 
-            <p className="text-xl text-gray-300 mb-12 max-w-3xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-300 mb-8 sm:mb-12 max-w-3xl mx-auto px-4 sm:px-0">
               Join thousands of developers who are already building faster, 
               smarter applications with DemoFlow's revolutionary visual backend builder.
             </p>
@@ -169,7 +168,7 @@ export function CTAFooter() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-gray-400 mb-12"
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm text-gray-400 mb-8 sm:mb-12"
             >
               <div className="flex items-center">
                 <Users className="w-4 h-4 mr-2 text-primary-400" />

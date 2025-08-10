@@ -13,8 +13,6 @@ export default function Home() {
   return (
     <>
       <ScrollProgressBar />
-      <FloatingNav />
-      <main className="min-h-screen bg-navy-950 overflow-x-hidden">
         <section id="home">
           <HeroSection />
         </section>
@@ -24,16 +22,12 @@ export default function Home() {
         <section id="nodes">
           <NodeTypesSection />
         </section>
-        <section id="builder">
-          <VisualBuilderPreview />
-        </section>
         <section id="codegen">
           <CodeGenerationPreview />
         </section>
         <section id="cta">
           <CTAFooter />
         </section>
-      </main>
     </>
   )
 }

@@ -4,108 +4,59 @@ import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import { 
   Zap, 
-  Shield, 
-  Layers, 
-  Code, 
+  Layers,  
   Database, 
-  Globe,
-  Smartphone,
-  BarChart3,
-  Lock,
-  Rocket,
-  Palette,
-  GitBranch
+  GitBranch,
+  CircleDollarSign,
+  Mails
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-
 const features = [
   {
     icon: Zap,
-    title: 'Lightning Fast',
+    title: 'Lightning Fast Development',
     description: 'Build and deploy applications in minutes, not months. Our optimized engine generates production-ready code instantly.',
-    color: 'from-yellow-400 to-orange-500',
+    color: 'from-amber-400 to-orange-500', // Warm gold/orange for "speed"
     direction: 'left'
-  },
-  {
-    icon: Shield,
-    title: 'Enterprise Security',
-    description: 'Bank-grade security with end-to-end encryption, role-based access control, and compliance certifications.',
-    color: 'from-green-400 to-emerald-500',
-    direction: 'right'
   },
   {
     icon: Layers,
     title: 'Visual Architecture',
     description: 'Design complex backend systems with drag-and-drop simplicity. See your entire application structure at a glance.',
-    color: 'from-blue-400 to-cyan-500',
+    color: 'from-emerald-400 to-green-500', // Green for "structure & clarity"
     direction: 'left'
-  },
-  {
-    icon: Code,
-    title: 'Clean Code Generation',
-    description: 'Generate maintainable, well-documented code that follows industry best practices and coding standards.',
-    color: 'from-purple-400 to-pink-500',
-    direction: 'right'
   },
   {
     icon: Database,
     title: 'Multi-Database Support',
     description: 'Connect to any database - PostgreSQL, MongoDB, MySQL, Redis, and more. Switch between them seamlessly.',
-    color: 'from-indigo-400 to-blue-500',
+    color: 'from-indigo-400 to-blue-500', // Cool, stable blue for databases
     direction: 'left'
   },
   {
-    icon: Globe,
-    title: 'Global Deployment',
-    description: 'Deploy to AWS, Google Cloud, Azure, or any cloud provider with one click. Auto-scaling included.',
-    color: 'from-teal-400 to-green-500',
+    icon: CircleDollarSign,
+    title: 'Stripe Integration',
+    description: 'Seamless payment processing with Stripe. Secure transactions, subscriptions, and global currency support.',
+    color: 'from-violet-500 to-purple-600', // Stripe-like purple gradient
+    direction: 'left'
+  },
+  {
+    icon: Mails,
+    title: 'Email Integration',
+    description: 'Send, receive, and automate emails effortlessly. Supports templates, scheduling, and real-time notifications.',
+    color: 'from-sky-400 to-blue-500', // Lighter sky-blue for communication
     direction: 'right'
-  },
-  {
-    icon: Smartphone,
-    title: 'Mobile Ready',
-    description: 'Automatically generate responsive APIs and mobile SDKs. Your backend works everywhere.',
-    color: 'from-rose-400 to-red-500',
-    direction: 'left'
-  },
-  {
-    icon: BarChart3,
-    title: 'Real-time Analytics',
-    description: 'Built-in monitoring, logging, and analytics. Track performance and user behavior out of the box.',
-    color: 'from-amber-400 to-yellow-500',
-    direction: 'right'
-  },
-  {
-    icon: Lock,
-    title: 'Advanced Auth',
-    description: 'Complete authentication system with OAuth, JWT, 2FA, and custom user management flows.',
-    color: 'from-violet-400 to-purple-500',
-    direction: 'left'
-  },
-  {
-    icon: Rocket,
-    title: 'Auto Scaling',
-    description: 'Your applications automatically scale based on demand. Handle millions of users without breaking a sweat.',
-    color: 'from-orange-400 to-red-500',
-    direction: 'right'
-  },
-  {
-    icon: Palette,
-    title: 'Custom Themes',
-    description: 'Brand your applications with custom themes, colors, and styling. Make it uniquely yours.',
-    color: 'from-pink-400 to-rose-500',
-    direction: 'left'
-  },
+  },  
   {
     icon: GitBranch,
     title: 'Version Control',
     description: 'Built-in version control with branching, merging, and rollback capabilities. Never lose your work.',
-    color: 'from-cyan-400 to-blue-500',
+    color: 'from-rose-400 to-pink-500', // Pink-red for "branching & changes"
     direction: 'right'
   }
 ]
+
 
 export function FeatureBlocks() {
   const ref = useRef(null)
@@ -156,7 +107,7 @@ export function FeatureBlocks() {
         </motion.div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {features.map((feature, index) => {
             const Icon = feature.icon
             return (
@@ -169,8 +120,8 @@ export function FeatureBlocks() {
                 }}
                 animate={isInView ? { opacity: 1, x: 0, y: 0 } : {}}
                 transition={{ 
-                  duration: 0.8, 
-                  delay: index * 0.1,
+                  duration: 0.1,
+                  delay: index * 0.05,
                   ease: "easeOut"
                 }}
                 whileHover={{ 
@@ -206,10 +157,10 @@ export function FeatureBlocks() {
                   </CardContent>
 
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-secondary-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-secondary-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" />
 
                   {/* Bottom Border Glow */}
-                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${feature.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-b-2xl`} />
+                  <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${feature.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl`} />
                 </Card>
 
                 {/* Floating Particles */}
@@ -229,26 +180,6 @@ export function FeatureBlocks() {
             )
           })}
         </div>
-
-        {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ delay: 1.2, duration: 0.8 }}
-          className="text-center mt-16"
-        >
-          <motion.div
-            whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(59, 130, 246, 0.3)" }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Button 
-              size="lg"
-              className="bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-400 hover:to-secondary-400 text-white font-semibold px-8 py-4 h-auto rounded-xl"
-            >
-              Explore All Features
-            </Button>
-          </motion.div>
-        </motion.div>
       </div>
     </section>
   )

@@ -1,441 +1,548 @@
-'use client'
-
-import { motion, useInView, useDragControls } from 'framer-motion'
-import { useRef, useState, useEffect } from 'react'
-import { 
-  Database, 
-  Server, 
-  Shield, 
-  Zap,
-  Users,
-  Mail,
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useClientOnly } from '@/hooks/useClientOnly';
+import {
+  Database,
+  Search,
+  Plus,
   Play,
   Pause,
-  RotateCcw
-} from 'lucide-react'
+  RotateCcw,
+  Settings,
+  Code,
+  Upload,
+  Download,
+  Zap,
+  LucideIcon
+} from 'lucide-react';
 
-interface Node {
-  id: string
-  type: string
-  title: string
-  icon: any
-  position: { x: number; y: number }
-  color: string
-  connections: string[]
+// Type definitions
+
+interface Position {
+  x: number;
+  y: number;
 }
 
+interface NodeConfig {
+  text?: string;
+  model?: string;
+  table?: string;
+  filter?: string;
+  limit?: number;
+  fields?: Array<{ name: string; type: string }>;
+}
+
+interface Node {
+  id: string;
+  type: keyof typeof nodeTypes;
+  position: Position;
+  config: NodeConfig;
+}
+
+interface Connection {
+  from: string;
+  to: string;
+  color: string;
+}
+
+interface NodeComponentProps {
+  node: Node;
+  isSelected: boolean;
+  onSelect: (nodeId: string) => void;
+  onUpdateConfig: (nodeId: string, config: NodeConfig) => void;
+  onUpdatePosition: (nodeId: string, position: Position) => void;
+}
+
+interface ConnectionLineProps {
+  connection: Connection;
+  fromNode: Node | undefined;
+  toNode: Node | undefined;
+  isAnimated: boolean;
+}
+
+// Node types based on the HTML flow diagram
+const nodeTypes = {
+  frontend: { icon: Code, color: 'from-blue-600 to-blue-800', label: 'Frontend' },
+  embedding: { icon: Zap, color: 'from-slate-700 to-slate-900', label: 'Embedding' },
+  insert: { icon: Plus, color: 'from-emerald-600 to-emerald-800', label: 'Insert' },
+  vectorSearch: { icon: Search, color: 'from-purple-600 to-purple-800', label: 'Vector Search' },
+  fetchResults: { icon: Download, color: 'from-purple-900 to-purple-950', label: 'Fetch Results' },
+  database: { icon: Database, color: 'from-purple-700 to-purple-900', label: 'Database' },
+  returnToFrontend: { icon: Upload, color: 'from-blue-600 to-blue-800', label: 'Return' }
+} as const;
+
+// Initial nodes configuration matching the HTML structure
 const initialNodes: Node[] = [
-  {
-    id: 'auth',
-    type: 'auth',
-    title: 'Auth',
-    icon: Shield,
-    position: { x: 50, y: 100 },
-    color: 'from-purple-500 to-pink-500',
-    connections: ['api', 'users']
-  },
-  {
-    id: 'api',
-    type: 'api',
-    title: 'API Gateway',
-    icon: Server,
-    position: { x: 250, y: 50 },
-    color: 'from-green-500 to-emerald-500',
-    connections: ['database', 'functions']
-  },
-  {
-    id: 'database',
-    type: 'database',
-    title: 'Database',
-    icon: Database,
-    position: { x: 450, y: 100 },
-    color: 'from-blue-500 to-cyan-500',
-    connections: []
-  },
-  {
-    id: 'users',
-    type: 'users',
-    title: 'Users',
-    icon: Users,
-    position: { x: 150, y: 200 },
-    color: 'from-teal-500 to-green-500',
-    connections: ['database']
-  },
-  {
-    id: 'functions',
-    type: 'functions',
-    title: 'Functions',
-    icon: Zap,
-    position: { x: 350, y: 200 },
-    color: 'from-yellow-500 to-orange-500',
-    connections: ['email', 'database']
-  },
-  {
-    id: 'email',
-    type: 'email',
-    title: 'Email',
-    icon: Mail,
-    position: { x: 500, y: 250 },
-    color: 'from-red-500 to-rose-500',
-    connections: []
-  }
-]
+  { id: 'frontend', type: 'frontend', position: { x: 0.5, y: 2.5 }, config: {} },
+  { id: 'embedding-insert', type: 'embedding', position: { x: 2, y: 1.25 }, config: { text: 'spicy pasta', model: 'text-embedding-ada-002' } },
+  { id: 'embedding-search', type: 'embedding', position: { x: 2, y: 3.75 }, config: { text: 'spicy pasta', model: 'text-embedding-ada-002' } },
+  { id: 'fetchFoodEntries', type: 'insert', position: { x: 3.5, y: 0.625 }, config: { table: 'foods' } },
+  { id: 'insertFood', type: 'insert', position: { x: 3.5, y: 1.875 }, config: { fields: [{ name: 'description', type: 'string' }, { name: 'cuisine', type: 'string' }] } },
+  { id: 'vectorSearch', type: 'vectorSearch', position: { x: 3.5, y: 3.75 }, config: { table: 'foods', filter: 'cuisine', limit: 10 } },
+  { id: 'fetchResults', type: 'fetchResults', position: { x: 5, y: 3.75 }, config: { table: 'foods' } },
+  { id: 'database', type: 'database', position: { x: 5, y: 1.875 }, config: { table: 'foods' } },
+  { id: 'returnToFrontend1', type: 'returnToFrontend', position: { x: 6.5, y: 0.625 }, config: {} },
+  { id: 'returnToFrontend2', type: 'returnToFrontend', position: { x: 6.5, y: 3.75 }, config: {} }
+];
 
-export function VisualBuilderPreview() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: "-100px" })
-  const [nodes, setNodes] = useState(initialNodes)
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null)
-  const [selectedNode, setSelectedNode] = useState<string | null>(null)
+// Initial connections matching the HTML flow
+const initialConnections: Connection[] = [
+  { from: 'frontend', to: 'embedding-insert', color: '#38bdf8' },
+  { from: 'frontend', to: 'fetchFoodEntries', color: '#3b82f6' },
+  { from: 'frontend', to: 'embedding-search', color: '#f59e0b' },
+  { from: 'embedding-insert', to: 'insertFood', color: '#10b981' },
+  { from: 'insertFood', to: 'database', color: '#6366f1' },
+  { from: 'fetchFoodEntries', to: 'returnToFrontend1', color: '#4ade80' },
+  { from: 'embedding-search', to: 'vectorSearch', color: '#ec4899' },
+  { from: 'vectorSearch', to: 'fetchResults', color: '#fbbf24' },
+  { from: 'fetchResults', to: 'returnToFrontend2', color: '#3b82f6' }
+];
 
-  // Animate data flow
+const NodeComponent: React.FC<NodeComponentProps> = ({ node, isSelected, onSelect, onUpdateConfig, onUpdatePosition }) => {
+  const nodeType = nodeTypes[node.type];
+  const Icon = nodeType?.icon || Settings;
+  const [showConfig, setShowConfig] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const isClient = useClientOnly();
+  
+  // Check if we're on a mobile device
   useEffect(() => {
-    if (!isPlaying) return
-
-    const interval = setInterval(() => {
-      // This creates the visual effect of data flowing through connections
-      setNodes(prevNodes => [...prevNodes])
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [isPlaying])
-
-  const resetNodes = () => {
-    setNodes(initialNodes)
-    setSelectedNode(null)
-    setHoveredNode(null)
-  }
-
-  const getConnectionPath = (from: Node, to: Node) => {
-    const startX = from.position.x + 40
-    const startY = from.position.y + 40
-    const endX = to.position.x + 40
-    const endY = to.position.y + 40
+    if (!isClient) return;
     
-    const midX = (startX + endX) / 2
-    const controlOffset = 50
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
     
-    return `M ${startX} ${startY} Q ${midX} ${startY - controlOffset} ${endX} ${endY}`
-  }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [isClient]);
+
+  const handleConfigChange = (key: keyof NodeConfig, value: string | number | Array<{ name: string; type: string }>) => {
+    onUpdateConfig(node.id, { ...node.config, [key]: value });
+  };
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.detail === 2) return; // Ignore double-click for dragging
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    onSelect(node.id);
+    
+    const rect = nodeRef.current?.getBoundingClientRect();
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+    }
+  }, [node.id, onSelect]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    
+    const canvas = document.querySelector('.canvas-container');
+    if (!canvas) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const scaleFactor = isMobile ? 80 : 100;
+    const heightFactor = isMobile ? 60 : 80;
+    
+    const newX = (e.clientX - canvasRect.left - dragOffset.x) / scaleFactor;
+    const newY = (e.clientY - canvasRect.top - dragOffset.y) / heightFactor;
+    
+    onUpdatePosition(node.id, {
+      x: Math.max(0, Math.min(newX, (canvasRect.width - (isMobile ? 60 : 80)) / scaleFactor)),
+      y: Math.max(0, Math.min(newY, (canvasRect.height - (isMobile ? 60 : 80)) / heightFactor))
+    });
+  }, [isDragging, dragOffset, node.id, onUpdatePosition, isMobile]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
-    <section ref={ref} className="py-24 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-secondary-500/5 rounded-full blur-3xl" />
+    <div
+        ref={nodeRef}
+        className="absolute z-10 select-none"
+        style={{ 
+          left: node.position.x * (isMobile ? 80 : 100), 
+          top: node.position.y * (isMobile ? 60 : 80),
+          cursor: isDragging ? 'grabbing' : 'grab',
+          transform: isMobile ? 'scale(0.85)' : 'none',
+          transformOrigin: 'center center'
+        }}>
+      <div
+        className={`relative group transition-all duration-200 ${
+          isSelected ? 'scale-110' : 'hover:scale-105'
+        } ${isDragging ? 'z-50' : ''}`}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={() => setShowConfig(!showConfig)}
+      >
+        {/* Node container */}
+        <div className={`
+          w-20 h-20 rounded-xl bg-gradient-to-br ${nodeType?.color || 'from-gray-600 to-gray-800'}
+          flex items-center justify-center shadow-lg border-2 transition-all duration-200
+          ${isSelected ? 'border-white shadow-xl' : 'border-white/20 shadow-md'}
+        `}>
+          <Icon className="w-8 h-8 text-white" />
+          
+          {/* Status indicator */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+          
+          {/* Connection points */}
+          <div className="absolute left-0 top-1/2 w-2 h-2 bg-blue-400 rounded-full transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute right-0 top-1/2 w-2 h-2 bg-blue-400 rounded-full transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        
+        {/* Node label */}
+        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs font-medium text-white text-center whitespace-nowrap">
+          {nodeType?.label || 'Unknown'}
+        </div>
       </div>
-
-      <div className="max-w-7xl mx-auto relative">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-16"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={isInView ? { opacity: 1, scale: 1 } : {}}
-            transition={{ delay: 0.2, duration: 0.6 }}
-            className="inline-flex items-center px-4 py-2 rounded-full bg-accent-500/10 border border-accent-500/20 text-accent-400 text-sm font-medium mb-6"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            Visual Builder
-          </motion.div>
-
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6">
-            Design your backend
-            <span className="block text-gradient bg-gradient-to-r from-accent-400 via-primary-400 to-secondary-400 bg-clip-text text-transparent">
-              visually and intuitively
-            </span>
-          </h2>
-
-          <p className="text-lg text-gray-300 max-w-3xl mx-auto">
-            Connect nodes, define relationships, and watch your backend architecture come to life. 
-            Real-time visualization with live data flow animation.
-          </p>
-        </motion.div>
-
-        {/* Builder Interface */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={isInView ? { opacity: 1, scale: 1 } : {}}
-          transition={{ delay: 0.4, duration: 0.8 }}
-          className="relative"
-        >
-          {/* Control Panel */}
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-4 bg-navy-800/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsPlaying(!isPlaying)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isPlaying 
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                }`}
-              >
-                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                {isPlaying ? 'Pause' : 'Play'}
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={resetNodes}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 transition-colors hover:bg-blue-500/30"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </motion.button>
-
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                Live Preview
+      
+      {/* Configuration panel */}
+      {showConfig && (
+        <div className="absolute top-24 left-0 bg-slate-800 border border-slate-600 rounded-lg p-4 w-64 shadow-xl z-20">
+          <h4 className="text-white font-semibold mb-3 flex items-center">
+            <Icon className="w-4 h-4 mr-2" />
+            {nodeType?.label || 'Node'} Config
+          </h4>
+          
+          {/* Dynamic configuration based on node type */}
+          {node.type === 'embedding' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Text</label>
+                <input
+                  type="text"
+                  value={node.config.text || ''}
+                  onChange={(e) => handleConfigChange('text', e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600 focus:border-blue-400"
+                />
               </div>
-            </div>
-          </div>
-
-          {/* Builder Canvas */}
-          <div className="relative bg-gradient-to-br from-navy-900/50 to-navy-800/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-            <div className="relative w-full h-96 md:h-[500px]">
-              {/* Grid Background */}
-              <div 
-                className="absolute inset-0 opacity-10"
-                style={{
-                  backgroundImage: `
-                    linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
-                  `,
-                  backgroundSize: '30px 30px',
-                }}
-              />
-
-              {/* SVG for Connections */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-                <defs>
-                  <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(59, 130, 246, 0.8)" />
-                    <stop offset="50%" stopColor="rgba(168, 85, 247, 0.8)" />
-                    <stop offset="100%" stopColor="rgba(16, 185, 129, 0.8)" />
-                  </linearGradient>
-                  
-                  <filter id="glow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                    <feMerge> 
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                </defs>
-
-                {/* Connection Lines */}
-                {nodes.map(node => 
-                  node.connections.map(connectionId => {
-                    const targetNode = nodes.find(n => n.id === connectionId)
-                    if (!targetNode) return null
-
-                    const isActive = hoveredNode === node.id || hoveredNode === connectionId || selectedNode === node.id || selectedNode === connectionId
-
-                    return (
-                      <g key={`${node.id}-${connectionId}`}>
-                        <motion.path
-                          d={getConnectionPath(node, targetNode)}
-                          stroke="url(#connectionGradient)"
-                          strokeWidth={isActive ? "3" : "2"}
-                          fill="none"
-                          strokeDasharray="5,5"
-                          filter={isActive ? "url(#glow)" : undefined}
-                          animate={isPlaying ? {
-                            strokeDashoffset: [0, -20],
-                            opacity: [0.6, 1, 0.6]
-                          } : {}}
-                          transition={{
-                            strokeDashoffset: { duration: 2, repeat: Infinity, ease: "linear" },
-                            opacity: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-                          }}
-                        />
-                        
-                        {/* Data Flow Particles */}
-                        {isPlaying && (
-                          <motion.circle
-                            r="3"
-                            fill="rgba(59, 130, 246, 0.8)"
-                            animate={{
-                              offsetDistance: ["0%", "100%"]
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "linear",
-                              delay: Math.random() * 2
-                            }}
-                            style={{
-                              offsetPath: `path("${getConnectionPath(node, targetNode)}")`,
-                              offsetRotate: "auto"
-                            }}
-                          />
-                        )}
-                      </g>
-                    )
-                  })
-                )}
-              </svg>
-
-              {/* Nodes */}
-              {nodes.map((node, index) => {
-                const Icon = node.icon
-                const isHovered = hoveredNode === node.id
-                const isSelected = selectedNode === node.id
-
-                return (
-                  <motion.div
-                    key={node.id}
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={isInView ? { 
-                      opacity: 1, 
-                      scale: isHovered || isSelected ? 1.1 : 1,
-                      x: node.position.x,
-                      y: node.position.y
-                    } : {}}
-                    transition={{ 
-                      duration: 0.6, 
-                      delay: index * 0.1,
-                      scale: { duration: 0.2 }
-                    }}
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="absolute cursor-pointer z-10"
-                    style={{ 
-                      left: 0, 
-                      top: 0,
-                    }}
-                    onMouseEnter={() => setHoveredNode(node.id)}
-                    onMouseLeave={() => setHoveredNode(null)}
-                    onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
-                  >
-                    {/* Node Container */}
-                    <div className={`relative w-20 h-20 rounded-2xl bg-gradient-to-br ${node.color} flex items-center justify-center shadow-lg border-2 ${
-                      isSelected ? 'border-white' : 'border-white/20'
-                    }`}>
-                      <Icon className="w-8 h-8 text-white" />
-                      
-                      {/* Pulse Effect */}
-                      {(isHovered || isSelected) && (
-                        <motion.div
-                          className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${node.color}`}
-                          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        />
-                      )}
-
-                      {/* Connection Points */}
-                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse" />
-                    </div>
-
-                    {/* Node Label */}
-                    <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs font-medium text-white text-center whitespace-nowrap">
-                      {node.title}
-                    </div>
-
-                    {/* Hover Info */}
-                    {isHovered && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-navy-800 px-3 py-2 rounded-lg text-xs text-white border border-gray-600 whitespace-nowrap z-20"
-                      >
-                        {node.type.charAt(0).toUpperCase() + node.type.slice(1)} Node
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-navy-800" />
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )
-              })}
-
-              {/* Selected Node Info Panel */}
-              {selectedNode && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="absolute top-4 right-4 bg-navy-800/90 backdrop-blur-xl border border-white/20 rounded-xl p-4 w-64 z-20"
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Model</label>
+                <select
+                  value={node.config.model || 'text-embedding-ada-002'}
+                  onChange={(e) => handleConfigChange('model', e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
                 >
-                  {(() => {
-                    const node = nodes.find(n => n.id === selectedNode)
-                    if (!node) return null
-                    const Icon = node.icon
+                  <option>text-embedding-ada-002</option>
+                  <option>text-embedding-3-small</option>
+                  <option>text-embedding-3-large</option>
+                  <option>text-embedding-babbage-001</option>
+                </select>
+              </div>
+            </div>
+          )}
+          
+          {node.type === 'vectorSearch' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Table</label>
+                <select
+                  value={node.config.table || 'foods'}
+                  onChange={(e) => handleConfigChange('table', e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
+                >
+                  <option>foods</option>
+                  <option>movies</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Filter</label>
+                <input
+                  type="text"
+                  value={node.config.filter || ''}
+                  onChange={(e) => handleConfigChange('filter', e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Limit</label>
+                <input
+                  type="number"
+                  value={node.config.limit || 10}
+                  onChange={(e) => handleConfigChange('limit', parseInt(e.target.value) || 10)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
+                />
+              </div>
+            </div>
+          )}
+          
+          {(node.type === 'insert' || node.type === 'fetchResults' || node.type === 'database') && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-300 mb-1">Table</label>
+                <select
+                  value={node.config.table || 'foods'}
+                  onChange={(e) => handleConfigChange('table', e.target.value)}
+                  className="w-full px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
+                >
+                  <option>foods</option>
+                  <option>movies</option>
+                  <option>recipes</option>
+                  <option>ingredients</option>
+                </select>
+              </div>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setShowConfig(false)}
+            className="mt-3 text-xs text-blue-400 hover:text-blue-300"
+          >
+            Close
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
-                    return (
-                      <>
-                        <div className="flex items-center mb-3">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${node.color} flex items-center justify-center mr-3`}>
-                            <Icon className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <h4 className="text-white font-semibold">{node.title}</h4>
-                            <p className="text-xs text-gray-400">{node.type} node</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="text-xs">
-                            <span className="text-gray-400">Connections:</span>
-                            <span className="text-white ml-1">{node.connections.length}</span>
-                          </div>
-                          <div className="text-xs">
-                            <span className="text-gray-400">Status:</span>
-                            <span className="text-green-400 ml-1">Active</span>
-                          </div>
-                          <div className="text-xs">
-                            <span className="text-gray-400">Load:</span>
-                            <span className="text-blue-400 ml-1">23%</span>
-                          </div>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </motion.div>
-              )}
+const ConnectionLine: React.FC<ConnectionLineProps> = ({ connection, fromNode, toNode, isAnimated }) => {
+  if (!fromNode || !toNode) return null;
+
+  const startX = (fromNode.position.x * 100) + 80; // Node width offset
+  const startY = (fromNode.position.y * 80) + 40; // Node height offset
+  const endX = (toNode.position.x * 100);
+  const endY = (toNode.position.y * 80) + 40;
+
+  // Create curved path
+  const midX = (startX + endX) / 2;
+  const controlX = midX;
+  const controlY = Math.min(startY, endY) - 30;
+  const path = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+
+  return (
+    <g>
+      {/* Connection line */}
+      <path
+        d={path}
+        stroke={connection.color}
+        strokeWidth="3"
+        fill="none"
+        strokeDasharray="5,5"
+        className={isAnimated ? 'animate-pulse' : ''}
+        style={{
+          filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.3))',
+          animation: isAnimated ? 'dash 2s linear infinite' : 'none'
+        }}
+      />
+      
+      {/* Arrow head */}
+      <polygon
+        points={`${endX-8},${endY-4} ${endX},${endY} ${endX-8},${endY+4}`}
+        fill={connection.color}
+      />
+      
+      {/* Animated data particle */}
+      {isAnimated && (
+        <circle
+          r="3"
+          fill="rgba(59, 130, 246, 0.8)"
+          className="animate-bounce"
+          style={{
+            offsetPath: `path("${path}")`,
+            offsetDistance: '50%',
+            animation: 'moveAlongPath 2s ease-in-out infinite'
+          }}
+        />
+      )}
+    </g>
+  );
+};
+
+export function VisualBuilderPreview() {
+  const [nodes, setNodes] = useState<Node[]>(initialNodes);
+  const [connections, setConnections] = useState<Connection[]>(initialConnections);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isGridVisible, setIsGridVisible] = useState(true);
+
+  const handleNodeSelect = (nodeId: string) => {
+    setSelectedNode(selectedNode === nodeId ? null : nodeId);
+  };
+
+  const handleNodeConfigUpdate = (nodeId: string, newConfig: NodeConfig) => {
+    setNodes(nodes.map(node =>
+      node.id === nodeId ? { ...node, config: newConfig } : node
+    ));
+  };
+
+  const handleNodePositionUpdate = (nodeId: string, newPosition: Position) => {
+    setNodes(nodes.map(node =>
+      node.id === nodeId ? { ...node, position: newPosition } : node
+    ));
+  };
+
+  const resetBuilder = () => {
+    setNodes(initialNodes);
+    setConnections(initialConnections);
+    setSelectedNode(null);
+  };
+
+  const selectedNodeData = nodes.find(n => n.id === selectedNode);
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* Header */}
+      <div className="bg-slate-800/50 border-b border-slate-700 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm font-bold">VB</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">Visual Backend Builder</h1>
+              <p className="text-sm text-gray-400">Drag, drop, connect - no coding required</p>
             </div>
           </div>
-
-          {/* Features List */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: 0.8, duration: 0.8 }}
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              <h4 className="text-white font-semibold mb-2">Drag & Drop</h4>
-              <p className="text-gray-300 text-sm">Intuitive visual interface for building complex architectures</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <h4 className="text-white font-semibold mb-2">Real-time Preview</h4>
-              <p className="text-gray-300 text-sm">See your changes instantly with live data flow visualization</p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Server className="w-6 h-6 text-white" />
-              </div>
-              <h4 className="text-white font-semibold mb-2">Auto Configuration</h4>
-              <p className="text-gray-300 text-sm">Smart defaults and automatic optimization for best performance</p>
-            </div>
-          </motion.div>
-        </motion.div>
+          
+          {/* Controls */}
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                isPlaying
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+              }`}
+            >
+              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+            <button
+              onClick={resetBuilder}
+              className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset
+            </button>
+            <button
+              onClick={() => setIsGridVisible(!isGridVisible)}
+              className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30"
+            >
+              <Settings className="w-4 h-4" />
+              Grid
+            </button>
+          </div>
+        </div>
       </div>
-    </section>
-  )
+
+      {/* Main Canvas */}
+      <div className="canvas-container relative bg-gradient-to-br from-slate-900 to-slate-800 h-screen overflow-hidden">
+        {/* Grid Background */}
+        {isGridVisible && (
+          <div
+            className="absolute inset-0 opacity-10"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(99, 102, 241, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.3) 1px, transparent 1px)
+              `,
+              backgroundSize: '30px 30px',
+            }}
+          />
+        )}
+
+        {/* SVG for connections */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+          <defs>
+            <style>
+              {`
+                @keyframes dash {
+                  to {
+                    stroke-dashoffset: -20;
+                  }
+                }
+              `}
+            </style>
+          </defs>
+          {connections.map((connection, index) => {
+            const fromNode = nodes.find(n => n.id === connection.from);
+            const toNode = nodes.find(n => n.id === connection.to);
+            return (
+              <ConnectionLine
+                key={`${connection.from}-${connection.to}`}
+                connection={connection}
+                fromNode={fromNode}
+                toNode={toNode}
+                isAnimated={isPlaying}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Nodes */}
+        {nodes.map(node => (
+          <NodeComponent
+            key={node.id}
+            node={node}
+            isSelected={selectedNode === node.id}
+            onSelect={handleNodeSelect}
+            onUpdateConfig={handleNodeConfigUpdate}
+            onUpdatePosition={handleNodePositionUpdate}
+          />
+        ))}
+
+        {/* Selected Node Info Panel */}
+        {selectedNodeData && (
+          <div className="absolute top-6 right-6 bg-slate-800/90 backdrop-blur-sm border border-slate-600 rounded-xl p-4 w-64 z-20">
+            <div className="flex items-center mb-3">
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${nodeTypes[selectedNodeData.type]?.color || 'from-gray-600 to-gray-800'} flex items-center justify-center mr-3`}>
+                {React.createElement(nodeTypes[selectedNodeData.type]?.icon || Settings, { className: "w-4 h-4 text-white" })}
+              </div>
+              <div>
+                <h4 className="text-white font-semibold">{nodeTypes[selectedNodeData.type]?.label || 'Node'}</h4>
+                <p className="text-xs text-gray-400">{selectedNodeData.type} node</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs">
+                <span className="text-gray-400">Status:</span>
+                <span className="text-green-400 ml-1">Active</span>
+              </div>
+              <div className="text-xs">
+                <span className="text-gray-400">Connections:</span>
+                <span className="text-white ml-1">
+                  {connections.filter(c => c.from === selectedNodeData.id || c.to === selectedNodeData.id).length}
+                </span>
+              </div>
+              <div className="text-xs">
+                <span className="text-gray-400">Load:</span>
+                <span className="text-blue-400 ml-1">23%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Bar */}
+        <div className="absolute bottom-6 left-6 flex items-center space-x-4 bg-slate-800/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-slate-600">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            <span className="text-sm text-gray-300">Live Preview</span>
+          </div>
+          <div className="w-px h-4 bg-gray-600" />
+          <span className="text-sm text-gray-400">{nodes.length} nodes</span>
+          <span className="text-sm text-gray-400">{connections.length} connections</span>
+        </div>
+      </div>
+    </div>
+  );
 }

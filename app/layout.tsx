@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import {FloatingNav} from "@/components/FloatingNav";
+import React from "react";
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,7 +19,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-navy-950 text-white antialiased`}>
+       <FloatingNav />
+       <main className="min-h-screen bg-navy-950 overflow-x-hidden">
         {children}
+       </main>
       </body>
     </html>
   )

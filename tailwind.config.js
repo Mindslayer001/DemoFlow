@@ -24,6 +24,12 @@ module.exports = {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
+  			brand: {
+  				blue: 'hsl(var(--brand-blue))',
+  				purple: 'hsl(var(--brand-purple))',
+  				green: 'hsl(var(--brand-green))',
+  				unicorn: 'hsl(var(--brand-unicorn))'
+  			},
   			secondary: {
   				'50': '#faf5ff',
   				'100': '#f3e8ff',
