@@ -323,7 +323,7 @@ export function CTAFooter() {
             className="flex flex-col sm:flex-row justify-between items-center pt-8 mt-8 border-t border-white/10"
           >
             <p className="text-gray-400 text-sm">
-              © 2024 DemoFlow. All rights reserved.
+              © 2025 DemoFlow. All rights reserved.
             </p>
             
             <div className="flex gap-6 mt-4 sm:mt-0">
