@@ -37,8 +37,7 @@ export function CTAFooter() {
   return (
     <footer className="relative overflow-hidden">
       {/* Main CTA Section */}
-      <section ref={ref} className="py-24 px-4 sm:px-6 lg:px-8 relative">
-        {/* Animated Background */}
+        <section ref={ref} className="min-h-screen py-24 px-4 sm:px-6 lg:px-8 relative flex items-center">        {/* Animated Background */}
         <div className="absolute inset-0">
           {/* Base Gradient */}
           <div className="absolute inset-0 bg-gradient-to-br from-navy-900 via-navy-800 to-navy-950" />
@@ -93,7 +92,7 @@ export function CTAFooter() {
           />
         </div>
 
-        <div className="max-w-4xl mx-auto relative z-10 text-center">
+        <div className="max-w-4xl mx-auto relative z-10 text-center h-full">
           {/* Main CTA Content */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
