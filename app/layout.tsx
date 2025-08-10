@@ -18,12 +18,12 @@ export default function RootLayout({
     children: React.ReactNode
 }) {
     return (<>
-            <Analytics/>
             <html lang="en" className="dark">
             <body className={`${inter.className} bg-navy-950 text-white antialiased`}>
             <FloatingNav/>
             <main className="min-h-screen bg-navy-950 overflow-x-hidden">
                 {children}
+                <Analytics/>
             </main>
             </body>
             </html>
